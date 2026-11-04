@@ -1,0 +1,153 @@
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(olsrr)
+library(lmtest)
+library(tidyr)
+library(caret)
+library(Matrix)
+library(GGally)
+library(olsrr)
+library(caret)
+library(MASS)
+library(corrplot)
+
+#---------------------------------------------------------------------------------------
+#                           Dataset description
+#---------------------------------------------------------------------------------------
+data=read.csv(file="D:/cars.csv",header=F)
+data=data.frame(data)
+data=data[,-1]
+namess=data[1,]
+data=data[-1,]
+colnames(data)=namess
+#------------------------------------------------------
+names_Contin=c("price","highway-mpg","city-mpg","peak-rpm","horsepower",
+               "compression-ratio","stroke","bore","engine-size",
+               "curb-weight","height","width","length","wheel-base","normalized-losses")
+data_contin<- data %>% dplyr::select(all_of(names_Contin))
+data_contin<-suppressWarnings({data_contin%>%mutate_if(is.character,as.numeric)})
+data_contin<- data_contin%>% drop_na()
+str(data_contin)
+names_Contin2=c("price(Y)","highway-mpg(X1)","city-mpg(X2)","peak-rpm(X3)","horsepower(X4)",
+               "compression-ratio(X5)","stroke(X6)","bore(X7)","engine-size(X8)",
+               "curb-weight(X9)","height(X10)","width(X11)","length(X12)","wheel-base(X13)",
+               "normalized-losses(X14)")
+colnames(data_contin)<-names_Contin2
+str(data_contin)
+
+#---------------------------------------------------------------------------------------
+#                    Initial Analysing and Transformations
+#---------------------------------------------------------------------------------------
+names_Contin2=c("Y","X1","X2","X3","X4","X5","X6","X7","X8","X9","X10",
+               "X11","X12","X13","X14")
+colnames(data_contin)<-names_Contin2
+#-------------------------------------------
+cor_mat<-cor(data_contin,method=c("pearson"))
+cor_mat<-round(cor_mat,3)
+cor_mat<-triu(cor_mat)
+rownames(cor_mat)<-c("Y","X1","X2","X3","X4","X5","X6","X7","X8","X9","X10",
+               "X11","X12","X13","X14")
+colnames(cor_mat)<-c("Y","X1","X2","X3","X4","X5","X6","X7","X8","X9","X10",
+               "X11","X12","X13","X14")
+cor_mat
+#------------------------------------------------------
+fit1=lm(Y~.,data=data_contin)
+summary(fit1)
+anova(fit1)
+
+data_fit1<-data.frame(Residuals=fit1$resid,Fitted=fitted(fit1))
+Plot1_fit1<-ggplot(data_fit1,aes(x=Fitted,y=Residuals))+geom_point(color="blue")+
+            geom_hline(yintercept=0,color="red")+ 
+            ggtitle("Residuals ~ Fitted values") 
+Plot2_fit1<-ggplot(data_fit1,aes(sample=fit1$resid))+
+            geom_qq(distribution=qnorm,col="blue")+geom_qq_line(distribution=qnorm,col="red")+
+            ggtitle("QQ-plot")+xlab("Fitted Normal Quantiles")+ylab("Sample quantiles")
+Plot3_fit1<-ggplot(data.frame(fit1$resid),aes(y=fit1$resid))+geom_boxplot(color="blue")+
+       xlab("")+ylab("Residuals")
+grid.arrange(Plot1_fit1,Plot2_fit1,Plot3_fit1,ncol=3)
+#------------------------------------------------------
+Plot1<-ggplot(data_contin,aes(x=X1,y=Y))+geom_point(color="blue")
+Plot2<-ggplot(data_contin,aes(x=X2,y=Y))+geom_point(color="blue")
+Plot3<-ggplot(data_contin,aes(x=X3,y=Y))+geom_point(color="blue")
+Plot4<-ggplot(data_contin,aes(x=X4,y=Y))+geom_point(color="blue")
+Plot5<-ggplot(data_contin,aes(x=X5,y=Y))+geom_point(color="blue")
+Plot6<-ggplot(data_contin,aes(x=X6,y=Y))+geom_point(color="blue")
+Plot7<-ggplot(data_contin,aes(x=X7,y=Y))+geom_point(color="blue")
+Plot8<-ggplot(data_contin,aes(x=X8,y=Y))+geom_point(color="blue")
+Plot9<-ggplot(data_contin,aes(x=X9,y=Y))+geom_point(color="blue")
+Plot10<-ggplot(data_contin,aes(x=X10,y=Y))+geom_point(color="blue")
+Plot11<-ggplot(data_contin,aes(x=X11,y=Y))+geom_point(color="blue")
+Plot12<-ggplot(data_contin,aes(x=X12,y=Y))+geom_point(color="blue")
+Plot13<-ggplot(data_contin,aes(x=X13,y=Y))+geom_point(color="blue")
+Plot14<-ggplot(data_contin,aes(x=X14,y=Y))+geom_point(color="blue")
+grid.arrange(Plot1,Plot2,Plot3,Plot4,
+             Plot5,Plot6,Plot7,Plot8,ncol=4)
+grid.arrange(Plot9,Plot10,Plot11,Plot12,
+             Plot13,Plot14,ncol=3)
+#------------------------------------------------------
+data_trans<-cbind(data_contin$Y,(1/data_contin$X1),(1/data_contin$X2),data_contin$X3,
+                  (data_contin$X4),data_contin$X5,data_contin$X6,data_contin$X7,
+                  data_contin$X8,data_contin$X9,data_contin$X10,data_contin$X11,
+                  exp(data_contin$X12),data_contin$X13,data_contin$X14)
+data_trans<-data.frame(data_trans)
+colnames(data_trans)<-c("Y","X1_star","X2_star","X3","X4","X5","X6","X7","X8","X9","X10",
+               "X11","X12_star","X13","X14")
+
+fit2<-lm(Y~.,data=data_trans)
+summary(fit2)     
+anova(fit2)
+
+#---------------------------------------------------------------------------------------
+#                          Outlier observations
+#---------------------------------------------------------------------------------------
+aplha<-0.05
+n<-dim(data_trans)[1]
+p<-dim(data_trans)[2]
+t_Stud_Delet_Res<-abs(studres(fit2))
+t_Bonf<-qt(1-(aplha/(2*n)),df=n-p-1)
+t_Y_outliers<-t_Stud_Delet_Res[t_Stud_Delet_Res>t_Bonf]
+id_Y_outliers<-which(t_Stud_Delet_Res>t_Bonf)
+n_Y_outliers<-length(id_Y_outliers)
+data_outliers<-data_trans[id_Y_outliers,1]
+
+Y_outliers_plot<-ggplot(data.frame(1:n,t_Stud_Delet_Res), aes(x=1:n,y=abs(t_Stud_Delet_Res)))+ 
+    geom_point()+geom_path()+
+    geom_hline(yintercept=t_Bonf,linetype="dashed",color="blue")+
+    xlab("Sequence")+ylab("Studentized Deleted Residuals")+
+    labs(title="Studentized Deleted Residuals")
+Y_outliers_plot
+
+cat("\n Studentized Deleted Residuals(t_Stud_Delet_Res)\n")
+print(t_Stud_Delet_Res)
+cat("\n Bonferroni critical(t_Bonf) \n")
+print(t_Bonf)
+if(n_Y_outliers>0){
+result_Y_outliers<-cbind(id_Y_outliers,data_outliers,t_Stud_Delet_Res[id_Y_outliers])
+colnames(result_Y_outliers)<-c("id","Y_outliers","|t_Stud_Delet_Res|")
+rownames(result_Y_outliers)<-c("")
+cat("\n Based on Bonferroni test of studentized deleted residuals,outliers are observations:\n")
+print(result_Y_outliers)
+}else{
+cat("\n No outliers in data based on Bonferroni test of studentized deleted residuals\n")
+}
+#------------------------------------------------------
+data_trans2<-data_trans[-id_Y_outliers,]
+fit3<-lm(Y~.,data=data_trans2)
+summary(fit3)
+anova(fit3)
+
+#---------------------------------------------------------------------------------------
+#                              Collinearity
+#---------------------------------------------------------------------------------------
+res_VIF<-matrix(car::vif(fit3),14,1)
+rownames(res_VIF)<-c("X1_star","X2_star","X3","X4","X5","X6","X7","X8","X9","X10",
+               "X11","X12_star","X13","X14")
+colnames(res_VIF)<-"VIF"
+res_VIF
+#---------------------------------------------------------------------------------------
+#                        Model and Variable selection
+#---------------------------------------------------------------------------------------
+ols_step_best_subset(fit3,details = F, pent=0.1,prem=0.3)
+ols_step_forward_p(fit3,details = F, pent=0.1,prem=0.3)
+ols_step_backward_p(fit3,details = F, pent=0.1,prem=0.3)
